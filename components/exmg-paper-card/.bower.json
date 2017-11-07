@@ -1,0 +1,49 @@
+{
+  "name": "exmg-paper-card",
+  "description": "Material design style cards",
+  "main": "exmg-paper-card.html",
+  "version": "1.0.5",
+  "authors": [
+    "Ex Machina Group"
+  ],
+  "keywords": [
+    "web-components",
+    "polymer",
+    "card"
+  ],
+  "private": false,
+  "homepage": "https://github.com/ExmgElements/exmg-paper-card",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:ExmgElements/exmg-paper-card.git"
+  },
+  "dependencies": {
+    "polymer": "Polymer/polymer#^2.0.0",
+    "iron-flex-layout": "PolymerElements/iron-flex-layout#^2.0.0",
+    "paper-icon-button": "PolymerElements/paper-icon-button#^2.0.0",
+    "iron-icon": "PolymerElements/iron-icon#^2.0.0",
+    "iron-input": "PolymerElements/iron-input#^2.0.0",
+    "paper-styles": "PolymerElements/paper-styles#^2.0.0"
+  },
+  "devDependencies": {
+    "exmg-datatable": "ExmgElements/exmg-paper-datatable",
+    "iron-demo-helpers": "PolymerElements/iron-demo-helpers#^2.0.0",
+    "paper-button": "PolymerElements/paper-button#^2.0.0",
+    "paper-icon-button": "PolymerElements/paper-icon-button#^2.0.0",
+    "web-component-tester": "Polymer/web-component-tester#^6.0.0",
+    "webcomponentsjs": "webcomponents/webcomponentsjs#^1.0.0",
+    "iron-component-page": "^3.0.1"
+  },
+  "resolutions": {
+    "polymer": "^2.0.0"
+  },
+  "_release": "1.0.5",
+  "_resolution": {
+    "type": "version",
+    "tag": "v1.0.5",
+    "commit": "2d912feed2766973573be4cf1aa864de8a329a0b"
+  },
+  "_source": "https://github.com/ExmgElements/exmg-paper-card.git",
+  "_target": "^1.0.0",
+  "_originalSource": "ExmgElements/exmg-paper-card"
+}

@@ -1,0 +1,213 @@
+<!--
+@license
+Copyright (c) 2016 The Polymer Project Authors. All rights reserved.
+This code may only be used under the BSD style license found at http://polymer.github.io/LICENSE.txt
+The complete set of authors may be found at http://polymer.github.io/AUTHORS.txt
+The complete set of contributors may be found at http://polymer.github.io/CONTRIBUTORS.txt
+Code distributed by Google as part of the polymer project is also
+subject to an additional IP rights grant found at http://polymer.github.io/PATENTS.txt
+-->
+
+<link rel="import" href="../polymer/polymer-element.html">
+<link rel="import" href="iron-overlay-renderer-shared-styles.html">
+
+<!--
+`iron-overlay-renderer` renders the overlay content in the center of the screen,
+and handles the switch from opened state to closed state & viceversa.
+
+### Styling
+
+`iron-overlay` sets its renderer attribute `data-overlay` to its id, so that
+styling can be done like this:
+
+    <style is="custom-style">
+      iron-overlay-renderer {
+        --iron-overlay-background-color: yellow;
+      }
+      [data-overlay="overlay1"] {
+        --iron-overlay-background-color: orange;
+      }
+    </style>
+
+    <iron-overlay-container></iron-overlay-container>
+
+    <iron-overlay>
+      <template>Overlay Content</template>
+    </iron-overlay>
+    <iron-overlay id="overlay1">
+      <template>Overlay 1 Content</template>
+    </iron-overlay>
+
+@demo demo/index.html
+-->
+
+<dom-module id="iron-overlay-renderer">
+  <template strip-whitespace>
+    <style include="iron-overlay-renderer-shared-styles"></style>
+    <div id="backdrop"></div>
+    <div id="overlay">
+      <slot></slot>
+    </div>
+  </template>
+
+  <script>
+    (() => {
+      'use strict';
+
+      class IronOverlayRenderer extends Polymer.Element {
+
+        static get is() {
+          return 'iron-overlay-renderer';
+        }
+
+        static get properties() {
+          return {
+            /**
+             * True if the overlay is currently displayed.
+             */
+            opened: {
+              type: Boolean,
+              observer: '_openedChanged'
+            },
+
+            /**
+             * True if the overlay has open/close animation.
+             */
+            animated: {
+              type: Boolean
+            },
+
+            /**
+             * True if the overlay should have a backdrop.
+             */
+            withBackdrop: {
+              type: Boolean
+            },
+
+            /**
+             * Is true during the transition from close to open and open to close.
+             */
+            transitioning: {
+              type: Boolean,
+              notify: true,
+              readOnly: true
+            }
+          };
+        }
+
+        constructor() {
+          super();
+          // For a performant transition from open to close and close to open.
+          this._pendingRAF = null;
+        }
+
+        ready() {
+          super.ready();
+          // If delegatesFocus is not supported or class is extended but doesn't
+          // have a shadow root, make the element focusable but not tabbable.
+          if (!this.shadowRoot || !this.shadowRoot.delegatesFocus) {
+            this.setAttribute('tabindex', '-1');
+          }
+          this.$.overlay.addEventListener('transitionend', this._onTransitionEnd.bind(this));
+        }
+
+        /**
+         * Overridden from Polymer.Element to ensure the shadow root delegates focus.
+         * See Polymer/polymer#3988
+         * @protected
+         */
+        _attachDom(dom) {
+          // Create shadowRoot only when there is content to be added
+          if (dom && this.attachShadow && !this.shadowRoot) {
+            this.attachShadow({
+              mode: 'open',
+              delegatesFocus: true
+            });
+          }
+          return super._attachDom(dom);
+        }
+
+        /**
+         * Tasks to be performed to actually open/close. Override this to play
+         * animations, and call `_finishRenderOpenedChanged()` when those are done.
+         * @protected
+         */
+        _renderOpenedChanged() {
+          // Doesn't wait for animations if animated is false.
+          if (!this.animated) {
+            this._finishRenderOpenedChanged();
+          }
+        }
+
+        /**
+         * @protected
+         */
+        _finishRenderOpenedChanged() {
+          this._setTransitioning(false);
+        }
+
+        /**
+         * @param {boolean} opened
+         */
+        _openedChanged(opened) {
+          this._onNextAF(this._startRenderOpenedChanged);
+        }
+
+        /**
+         * Starts the update from open to closed & viceversa.
+         */
+        _startRenderOpenedChanged() {
+          this._setTransitioning(true);
+          // Update interactions with element.
+          this.style.pointerEvents = this.opened ? '' : 'none';
+          // Need to force layout for any animation to trigger.
+          if (this.animated) {
+            this._forceLayout();
+          }
+          // Update classes for overlay and backdrop.
+          this.$.overlay.classList.toggle('opened', this.opened);
+          // Check if there is a backdrop in the shadow dom.
+          this.$.backdrop && this.$.backdrop.classList.toggle('opened', this.opened);
+          this._renderOpenedChanged();
+        }
+
+        /**
+         * Forces layout.
+         */
+        _forceLayout() {
+          return this.offsetWidth;
+        }
+
+        /**
+         * Callback for transitionend, ends the animation.
+         * @param {!Event} event
+         */
+        _onTransitionEnd(event) {
+          if (event.target === this.$.overlay && this.transitioning) {
+            // Since there might be multiple animations (e.g. opacity + transition),
+            // call finish function only once (reuse RAF).
+            this._onNextAF(this._finishRenderOpenedChanged);
+          }
+        }
+
+        /**
+         * Executes the callback at the next available animation frame.
+         * @param {!Function} callback Its scope will be the renderer itself
+         */
+        _onNextAF(callback) {
+          this._pendingRAF && window.cancelAnimationFrame(this._pendingRAF);
+          const self = this;
+          this._pendingRAF = window.requestAnimationFrame(function nextAnimationFrame() {
+            self._pendingRAF = null;
+            callback.call(self);
+          });
+        }
+
+      }
+
+      Polymer.IronOverlayRenderer = IronOverlayRenderer;
+      customElements.define(IronOverlayRenderer.is, IronOverlayRenderer);
+
+    })();
+  </script>
+</dom-module>

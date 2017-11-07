@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, minimum-scale=1, initial-scale=1, user-scalable=yes">
+
+    <title>exmg-paper-card demo</title>
+
+    <script src="../../webcomponentsjs/webcomponents-lite.js"></script>
+
+    <link rel="import" href="../../iron-demo-helpers/demo-pages-shared-styles.html">
+    <link rel="import" href="../../iron-demo-helpers/demo-snippet.html">
+    <link rel="import" href="../../iron-flex-layout/iron-flex-layout.html">
+    <link rel="import" href="../../paper-button/paper-button.html">
+    <link rel="import" href="../../paper-icon-button/paper-icon-button.html">
+    <link rel="import" href="../../paper-styles/paper-styles.html">
+
+    <link rel="import" href="../../exmg-datatable/exmg-datatable.html">
+    <link rel="import" href="../../exmg-datatable/exmg-thead.html">
+    <link rel="import" href="../../exmg-datatable/exmg-tbody.html">
+    <link rel="import" href="../../exmg-datatable/exmg-icons.html">
+
+    <link rel="import" href="../exmg-paper-card.html">
+    <link rel="import" href="../exmg-paper-search-header.html">
+
+    <custom-style>
+      <style is="custom-style" include="demo-pages-shared-styles">
+        :host {
+          @apply --paper-font-common-base;
+          font-size: 14px;
+        }
+        .centered {
+          max-width: 900px;
+          margin-left: auto;
+          margin-right: auto;
+        }
+        .flex {
+          @apply --layout-flex;
+        }
+        .header paper-button {
+          color: var(--text-primary-color);
+          background-color: var(--primary-color);
+          padding: 8px 20px;
+        }
+      </style>
+    </custom-style>
+  </head>
+  <body>
+    <div class="vertical-section-container centered">
+
+      <h3>Basic</h3>
+      <demo-snippet>
+        <template>
+          <exmg-paper-card>
+            <div class="body">Lorem ipsum dolor sit amet, dolore magna aliquam erat volutpat. Ut wisi enim ad minim veniam, quis nostrud exerci tation ullamcorper suscipit lobortis nisl ut aliquip ex ea commodo consequat. Duis autem vel eum iriure dolor in hendrerit in vulputate velit esse molestie consequat, vel illum dolore eu feugiat nulla facilisis at vero eros et accumsan et iusto odio dignissim qui blandit praesent luptatum zzril delenit augue duis dolore te feugait nulla facilisi.</div>
+          </exmg-paper-card>
+        </template>
+      </demo-snippet>
+
+      <h3>Header</h3>
+      <demo-snippet>
+        <template>
+          <exmg-paper-card>
+            <div class="header">
+              <span class="flex"></span>
+              <paper-button raised>Action</paper-button>
+            </div>
+            <div class="body">Lorem ipsum dolor sit amet, dolore magna aliquam erat volutpat. Ut wisi enim ad minim veniam, quis nostrud exerci tation ullamcorper suscipit lobortis nisl ut aliquip ex ea commodo consequat. Duis autem vel eum iriure dolor in hendrerit in vulputate velit esse molestie consequat, vel illum dolore eu feugiat nulla facilisis at vero eros et accumsan et iusto odio dignissim qui blandit praesent luptatum zzril delenit augue duis dolore te feugait nulla facilisi. <a href="#" target="_blank">More information</a></div></div>
+          </exmg-paper-card>
+        </template>
+      </demo-snippet>
+
+      <h3>Table</h3>
+      <demo-snippet>
+        <template>
+          <exmg-paper-card>
+            <exmg-datatable>
+              <!-- THead -->
+              <exmg-thead>
+                <template>
+                  <div class="tr">
+                    <div class="th">Name</div>
+                    <div class="th">Email</div>
+                    <div class="th">Country</div>
+                    <div class="th"></div>
+                  </div>
+                </template>
+              </exmg-thead>
+              <!-- TBody -->
+              <exmg-tbody items='[{"name": "Mark", "email": "mark@test.com","country": "Netherlands"}, {"name": "Jesse", "email": "jesse@test.com","country": "Netherlands"}]'>
+                <template>
+                  <div class="tr">
+                    <div class="td">[[item.name]]</div>
+                    <div class="td">[[item.email]]</div>
+                    <div class="td">[[item.country]]</div>
+                    <div class="td hover" style="text-align:right;">
+                      <span><paper-icon-button icon="exmg-icons:content-copy" on-tap="_stopTap"></paper-icon-button></span>
+                      <span><paper-icon-button icon="exmg-icons:more-vert" on-tap="_stopTap"></paper-icon-button></span>
+                    </div>
+                  </div>
+                </template>
+              </exmg-tbody>
+            </exmg-datatable>
+          </exmg-paper-card>
+        </template>
+      </demo-snippet>
+
+    </div>
+  </body>
+</html>

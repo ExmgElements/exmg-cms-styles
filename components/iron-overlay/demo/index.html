@@ -1,0 +1,162 @@
+<!doctype html>
+<!--
+@license
+Copyright (c) 2016 The Polymer Project Authors. All rights reserved.
+This code may only be used under the BSD style license found at http://polymer.github.io/LICENSE.txt
+The complete set of authors may be found at http://polymer.github.io/AUTHORS.txt
+The complete set of contributors may be found at http://polymer.github.io/CONTRIBUTORS.txt
+Code distributed by Google as part of the polymer project is also
+subject to an additional IP rights grant found at http://polymer.github.io/PATENTS.txt
+-->
+<html>
+
+<head>
+
+  <title>iron-overlay demo</title>
+
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, minimum-scale=1.0, initial-scale=1, user-scalable=yes">
+
+  <script src="../../webcomponentsjs/webcomponents-loader.js"></script>
+
+  <link rel="import" href="../iron-overlay.html">
+  <link rel="import" href="../iron-overlay-container.html">
+  <link rel="import" href="x-menu-button.html">
+
+  <link rel="import" href="../../iron-demo-helpers/demo-snippet.html">
+  <link rel="import" href="../../iron-demo-helpers/demo-pages-shared-styles.html">
+
+  <custom-style><style is="custom-style" include="demo-pages-shared-styles">
+    demo-snippet {
+      --demo-snippet-code: {
+        max-height: 250px;
+      }
+    }
+    demo-snippet.no-demo {
+      --demo-snippet-demo: {
+        height: 0;
+        padding: 0;
+      }
+    }
+  </style></custom-style>
+
+</head>
+
+<body unresolved class="centered">
+
+  <h3><code>iron-overlay</code> can be opened, closed, toggled.</h3>
+  <demo-snippet>
+    <template>
+      <button onclick="plain.opened = true">Plain overlay</button>
+      <iron-overlay id="plain" no-cancel-on-outside-click>
+        <template>
+          <h2>Hello world!</h2>
+          <p>This can be closed by pressing the ESC key too.</p>
+          <button onclick="plain2.opened = true" autofocus>Another Plain overlay</button>
+          <button onclick="plain.opened = false">Close</button>
+        </template>
+        <iron-overlay id="plain2">
+          <template>
+            <h2>Plain 2</h2>
+            <button onclick="plain2.opened = false">Close</button>
+          </template>
+        </iron-overlay>
+      </iron-overlay>
+    </template>
+  </demo-snippet>
+
+  <h3>Content can be styled.</h3>
+  <demo-snippet>
+    <template>
+      <button onclick="styledContent.opened = true">Overlay with styled content</button>
+      <iron-overlay id="styledContent">
+        <template>
+          <style>
+            div.styled-content {
+              background-color: yellow;
+              padding: 20px;
+            }
+          </style>
+          <div class="styled-content">
+            <h2>Hello world!</h2>
+            <p>"styled-content" class styles are applied into the scope of the
+              node containing this overlay renderer.</p>
+            <button onclick="styledContent.opened = false">Close</button>
+          </div>
+        </template>
+      </iron-overlay>
+    </template>
+  </demo-snippet>
+
+  <h3><code>iron-overlay</code> can be animated and extended.</h3>
+  <demo-snippet>
+    <template>
+      <custom-style><style is="custom-style">
+        [data-overlay="animated2"] {
+          left: 20px;
+          bottom: 20px;
+          top: auto;
+          right: auto;
+          --iron-backdrop-background-color: blue;
+          --iron-backdrop-opacity: 0.4;
+        }
+      </style></custom-style>
+
+      <button onclick="animated.opened = true">Animated overlay</button>
+      <iron-overlay id="animated" animated>
+        <template>
+          <h2>Animated!</h2>
+          <p>This can be closed by pressing the ESC key too.</p>
+          <button onclick="animated.withBackdrop = !animated.withBackdrop">toggle backdrop</button>
+          <button onclick="animated2.opened = true">Another animated overlay</button>
+          <button onclick="animated.opened = false">Close</button>
+        </template>
+      </iron-overlay>
+
+      <iron-overlay id="animated2" animated>
+        <template>
+          <h2>Animated 2</h2>
+          <button onclick="animated2.withBackdrop = !animated2.withBackdrop">toggle backdrop</button>
+          <x-menu-button animated vertical-align="bottom">
+            <button slot="trigger">x-menu-button</button>
+            <template>
+              <ul>
+                <li>one</li>
+                <li>two</li>
+                <li>three</li>
+              </ul>
+            </template>
+          </x-menu-button>
+          <button onclick="animated2.opened = false">Close</button>
+        </template>
+      </iron-overlay>
+    </template>
+  </demo-snippet>
+
+  <h3>You can host overlay renderers by using <code>iron-overlay-container</code></h3>
+  <demo-snippet class="no-demo">
+    <template>
+      <custom-style><style is="custom-style">
+        [data-overlay] {
+          --iron-overlay: {
+            border: 1px solid gray;
+            padding: 10px;
+          };
+          --iron-overlay-closed: {
+            transform: scale(.5);
+            transition: opacity .2s, transform .2s;
+            -webkit-transition: opacity .2s, transform .2s;
+          };
+          --iron-overlay-opened: {
+            transform: none;
+          };
+        }
+      </style></custom-style>
+      <iron-overlay-container overlay-type="iron-overlay"></iron-overlay-container>
+    </template>
+  </demo-snippet>
+
+</body>
+
+</html>

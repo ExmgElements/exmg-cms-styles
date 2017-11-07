@@ -1,0 +1,101 @@
+<!--
+@license
+Copyright (c) 2016 The Polymer Project Authors. All rights reserved.
+This code may only be used under the BSD style license found at http://polymer.github.io/LICENSE.txt
+The complete set of authors may be found at http://polymer.github.io/AUTHORS.txt
+The complete set of contributors may be found at http://polymer.github.io/CONTRIBUTORS.txt
+Code distributed by Google as part of the polymer project is also
+subject to an additional IP rights grant found at http://polymer.github.io/PATENTS.txt
+-->
+
+<link rel="import" href="../polymer/polymer-element.html">
+
+<!--
+### Styling
+
+The following custom properties and mixins are available for styling.
+
+Custom property | Description | Default
+----------------|-------------|----------
+`--iron-overlay-background-color`  | Overlay background color                                | `white`
+`--iron-backdrop-background-color` | Overlay backdrop color                                  | `black`
+`--iron-backdrop-opacity`          | Overlay backdrop opacity                                | `0.6`
+`--iron-overlay`                   | Mixin applied to the overlay                            | `{}`
+`--iron-overlay-opened`            | Mixin applied to the animated and opened overlay        | `{}`
+`--iron-backdrop`                  | Mixin applied to the backdrop                           | `{}`
+`--iron-backdrop-opened`           | Mixin applied to the backdrop when overlay is opened    | `{}`
+-->
+
+<dom-module id="iron-overlay-renderer-shared-styles">
+  <template strip-whitespace>
+    <style>
+      :host {
+        /* Take full screen */
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        /* Center content horizontally & vertically */
+        display: -ms-flexbox;
+        display: -webkit-flex;
+        display: flex;
+        -ms-flex-direction: column;
+        -webkit-flex-direction: column;
+        flex-direction: column;
+        -ms-flex-align: center;
+        -webkit-align-items: center;
+        align-items: center;
+        -ms-flex-pack: center;
+        -webkit-justify-content: center;
+        justify-content: center;
+
+        z-index: 101;
+        outline: none;
+        pointer-events: none;
+      }
+
+      #backdrop {
+        /* Take full screen */
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: -1;
+        background-color: transparent;
+        opacity: 0;
+        transition: background-color .2s, opacity .2s;
+        @apply --iron-backdrop;
+        @apply --iron-backdrop-closed;
+      }
+
+      :host([with-backdrop]) #backdrop.opened {
+        pointer-events: all;
+        background-color: var(--iron-backdrop-background-color, black);
+        opacity: var(--iron-backdrop-opacity, 0.6);
+        @apply --iron-backdrop-opened;
+      }
+
+      #overlay {
+        background-color: var(--iron-overlay-background-color, white);
+        opacity: 0;
+        transition: opacity .2s;
+        @apply --iron-overlay;
+        @apply --iron-overlay-closed;
+      }
+
+      #overlay.opened {
+        pointer-events: all;
+        opacity: 1;
+        @apply --iron-overlay-opened;
+      }
+
+      :host(:not([animated])) #overlay,
+      :host(:not([animated])) #backdrop {
+        transition: none;
+      }
+
+    </style>
+  </template>
+</dom-module>

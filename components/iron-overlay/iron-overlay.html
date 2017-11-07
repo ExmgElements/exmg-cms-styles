@@ -1,0 +1,579 @@
+<!--
+@license
+Copyright (c) 2016 The Polymer Project Authors. All rights reserved.
+This code may only be used under the BSD style license found at http://polymer.github.io/LICENSE.txt
+The complete set of authors may be found at http://polymer.github.io/AUTHORS.txt
+The complete set of contributors may be found at http://polymer.github.io/CONTRIBUTORS.txt
+Code distributed by Google as part of the polymer project is also
+subject to an additional IP rights grant found at http://polymer.github.io/PATENTS.txt
+-->
+
+<link rel="import" href="../polymer/polymer-element.html">
+<link rel="import" href="../polymer/lib/utils/gestures.html">
+<link rel="import" href="../polymer/lib/utils/templatize.html">
+<link rel="import" href="iron-overlay-renderer.html">
+
+<!--
+`iron-overlay` is an element that can be hidden or shown, and displays on top of other content.
+It can be used to implement a variety of UI controls including dialogs and drop downs.
+Multiple overlays may be displayed at once.
+
+`iron-overlay` delegates rendering of the overlay content to a renderer (`iron-overlay-renderer`).
+It won't host the renderer, but request another element to host it through the
+events `iron-overlay-attach` and `iron-overlay-detach`.
+It requires overlay contents to be contained in a `<template>` (since they need to be hosted in the renderer).
+
+Ensure to add an `iron-overlay-container` in your document in order to display
+overlays. Insert it in a stacking-context safe node (e.g. `document.body`).
+
+    <div style="transform: translateZ(0);">
+      This div creates a new stacking context
+      <iron-overlay opened>
+        <template>
+          <h2>Hello world!</h2>
+        </template>
+      </iron-overlay>
+    </div>
+
+    <iron-overlay-container></iron-overlay-container>
+
+
+### Closing and canceling
+
+An overlay may be hidden by closing or canceling. The difference between close and cancel is user
+intent. Closing generally implies that the user acknowledged the content on the overlay. By default,
+it will cancel whenever the user taps outside it or presses the escape key. This behavior is
+configurable with the `no-cancel-on-esc-key` and the `no-cancel-on-outside-click` properties.
+`close()` should be called explicitly by the implementer when the user interacts with a control
+in the overlay element. When the overlay is canceled, it fires an 'iron-overlay-canceled'
+event. Call `preventDefault` on this event to prevent the overlay from closing.
+
+
+### Styling
+
+`iron-overlay` sets its renderer attribute `data-overlay` to its id, so that
+styling can be done like this:
+
+    <style is="custom-style">
+      iron-overlay-renderer {
+        --iron-overlay-background-color: yellow;
+      }
+      iron-overlay-renderer[data-overlay="overlay1"] {
+        --iron-overlay-background-color: orange;
+      }
+    </style>
+
+    <iron-overlay-container></iron-overlay-container>
+
+    <iron-overlay>
+      <template>Overlay Content</template>
+    </iron-overlay>
+    <iron-overlay id="overlay1">
+      <template>Overlay 1 Content</template>
+    </iron-overlay>
+
+@demo demo/index.html
+ -->
+<dom-module id="iron-overlay">
+  <template>
+    <slot></slot>
+    <template id="renderer-template">
+      <iron-overlay-renderer opened$="[[opened]]" animated$="[[animated]]" with-backdrop$="[[withBackdrop]]"></iron-overlay-renderer>
+    </template>
+  </template>
+
+  <script>
+    (() => {
+      'use strict';
+
+      /**
+       * SharedEventListener allows to register callback for an event on document
+       * ensuring that the last registered callback is the one called.
+       * e.g. `node1`, `node2`, then `node3` listen for `click` event -> `node3`
+       * is the one to handle it.
+       */
+      class SharedEventListener {
+
+        constructor() {
+          this._events = {};
+          this._handleEvent = this._handleEvent.bind(this);
+          // Enable document-wide gesture recognizer.
+          Polymer.Gestures.addListener(document, 'tap', null);
+        }
+        /**
+         * Expects a callback that returns true when it handles the event, false
+         * to allow the event to be handled by the next listener.
+         */
+        listen(eventName, listener, callback) {
+          if (!this._events[eventName]) {
+            this._events[eventName] = [];
+            document.addEventListener(eventName, this._handleEvent, {
+              capture: true
+            });
+          }
+          // It's fine if we have duplicates, as the last one counts.
+          this._events[eventName].push({
+            listener: listener,
+            callback: callback
+          });
+        }
+
+        unlisten(eventName, listener) {
+          if (!this._events[eventName]) {
+            return;
+          }
+          // Remove all matching listeners.
+          const listeners = this._events[eventName].filter(obj => obj.listener !== listener);
+          if (listeners.length) {
+            this._events[eventName] = listeners;
+          } else {
+            this._events[eventName] = null;
+            document.removeEventListener(eventName, this._handleEvent, {
+              capture: true
+            });
+          }
+        }
+
+        _handleEvent(event) {
+          const handlers = this._events[event.type];
+          let i = handlers.length - 1;
+          let handler = null;
+          while ((handler = handlers[i--]) && !handler.listener[handler.callback](event)) {
+            // Keep looping until someone handles the event.
+          }
+        }
+      }
+
+      const sharedListener = new SharedEventListener();
+
+      class IronOverlay extends Polymer.Element {
+
+        static get is() {
+          return 'iron-overlay';
+        }
+
+        static get properties() {
+          return {
+            /**
+             * True if the overlay is currently displayed.
+             */
+            opened: {
+              type: Boolean,
+              notify: true,
+              observer: '_openedChanged'
+            },
+
+            /**
+             * True if the overlay has open/close animation.
+             */
+            animated: {
+              type: Boolean
+            },
+
+            /**
+             * True if the overlay should have a backdrop.
+             */
+            withBackdrop: {
+              type: Boolean
+            },
+
+            /**
+             * Contains the reason(s) this overlay was last closed (see `iron-overlay-closed`).
+             * `iron-overlay` provides the `canceled` reason.
+             */
+            closingReason: {
+              type: Object,
+              readOnly: true,
+              value() {
+                return {
+                  canceled: false
+                };
+              }
+            },
+
+            /**
+             * Set to true to disable canceling the overlay with the ESC key.
+             */
+            noCancelOnEscKey: {
+              type: Boolean
+            },
+
+            /**
+             * Set to true to disable canceling the overlay by clicking outside it.
+             */
+            noCancelOnOutsideClick: {
+              type: Boolean
+            },
+
+            /**
+             * Set to true to disable auto-focusing the overlay or child nodes with
+             * the `autofocus` attribute when the overlay is opened, and to
+             * disable the restoring of the focus to the previous node when closed.
+             */
+            noAutoFocus: {
+              type: Boolean
+            },
+
+            /**
+             * The renderer for the overlay.
+             */
+            renderer: {
+              type: Polymer.IronOverlayRenderer,
+              readOnly: true
+            },
+
+            _restoreFocusNode: {
+              type: Node,
+              value: null
+            }
+          };
+        }
+
+        connectedCallback() {
+          super.connectedCallback();
+          this.opened && this._openedChanged(this.opened);
+        }
+
+        disconnectedCallback() {
+          super.disconnectedCallback();
+          this._ensureDetached();
+        }
+
+        /**
+         * Toggle the opened state of the overlay.
+         */
+        toggle() {
+          this.opened = !this.opened;
+        }
+
+        /**
+         * Open the overlay.
+         */
+        open() {
+          this.opened = true;
+        }
+
+        /**
+         * Close the overlay.
+         */
+        close() {
+          this.opened = false;
+        }
+
+        /**
+         * Focuses the overlay if opened, blurs it and restores the focus to
+         * previous focused node if closed.
+         */
+        applyFocus() {
+          if (this.noAutoFocus || !this.renderer) {
+            return;
+          }
+          if (this.opened) {
+            this._getFocusNode().focus();
+          } else {
+            // Find if the focus is in the renderer.
+            let active = document.activeElement;
+            // Consider <body> as null.
+            if (active === document.body) {
+              active = null;
+            }
+            while (active) {
+              // The focus is in the renderer!
+              if (this.renderer.contains(active)) {
+                active.blur();
+                active = null;
+                break;
+              }
+              // Keep searching into shadowRoot's activeElement.
+              if (!active.shadowRoot) {
+                break;
+              }
+              active = active.shadowRoot.activeElement;
+            }
+            // If the activeElement is null, we are allowed to restore
+            // the focus. In all the other cases focus might have been moved
+            // elsewhere by another component or by an user interaction
+            // (e.g. click on a button outside the overlay).
+            if (!active && this._restoreFocusNode) {
+              this._restoreFocusNode.focus();
+            }
+          }
+        }
+
+        /**
+         * The node to be focused when the overlay is opened.
+         * Defaults to the child with `autofocus` or the overlay itself.
+         * @protected
+         */
+        _getFocusNode() {
+          return this.renderer.querySelector('[autofocus]') || this.renderer;
+        }
+
+        /**
+         * Fires `iron-overlay-canceled` event to notify that the overlay is about
+         * to be closed, and if this event is not prevented, it proceeds to
+         * close the overlay.
+         * @param {!Event} event The original event
+         * @protected
+         */
+        _cancel(event) {
+          const cancelEvent = this._fire('iron-overlay-canceled', event, {
+            cancelable: true
+          });
+          if (!cancelEvent.defaultPrevented) {
+            // _openedChanged will reset the closing reason, so set it to true right after.
+            this.opened = false;
+            this.closingReason.canceled = true;
+          }
+        }
+
+        /**
+         * Toggles the listeners according to `opened`.
+         * @protected
+         */
+        _toggleListeners() {
+          if (this.opened) {
+            sharedListener.listen('tap', this, '_onTap');
+            sharedListener.listen('keydown', this, '_onKeydown');
+          } else {
+            sharedListener.unlisten('tap', this);
+            sharedListener.unlisten('keydown', this);
+          }
+        }
+
+        /**
+         * Creates the renderer and its content; the content is appended into
+         * the light dom of the renderer.
+         * @returns {!Polymer.IronOverlayRenderer}
+         * @protected
+         */
+        _createRenderer() {
+          // NOTE: we must keep track of __rendererInstance and __contentInstance
+          // because Templatize memoizes the instance forwardHostProp and would invoke it on the
+          // first instance stamped by this element. https://github.com/Polymer/polymer/issues/4392
+          this.__rendererInstance = new(Polymer.Templatize.templatize(this.$['renderer-template'], this, {
+            forwardHostProp(prop, value) {
+              this.__rendererInstance && this.__rendererInstance.forwardHostProp(prop, value);
+            }
+          }))();
+          // NOTE: in MSEdge/IE DocumentFragments don't implement `firstElementChild`. 
+          const renderer = this.__rendererInstance.root.querySelector('*');
+          // Stamp the content (if any)
+          const contentTemplate = this.querySelector('template');
+          if (contentTemplate) {
+            this.__contentInstance = new(Polymer.Templatize.templatize(contentTemplate, this, {
+              forwardHostProp(prop, value) {
+                this.__contentInstance && this.__contentInstance.forwardHostProp(prop, value);
+              }
+            }))();
+            // Append children to renderer.
+            renderer.appendChild(this.__contentInstance.root);
+          }
+          return renderer;
+        }
+
+        /**
+         * Returns if the event was handled or not.
+         * @param {!Event} event
+         * @return {boolean} handled
+         */
+        _onKeydown(event) {
+          // By default the overlay says it handles this event. It should say
+          // it does not handle it if the user has pressed ESC and noCancelOnEscKey
+          // is true.
+          let handled = true;
+          if (event.key === 'Escape' || event.keyCode === 27) {
+            if (this.noCancelOnEscKey) {
+              handled = false;
+            } else {
+              // Avoid event handling conflicts with native overlays like <dialog>.
+              // E.g. ESC key should not bubble up to the native dialog.
+              // Needs to be synchronous.
+              event.preventDefault();
+              this._cancel(event);
+            }
+          }
+          return handled;
+        }
+
+        /**
+         * Returns if the event was handled or not.
+         * @param {!Event} event
+         * @return {boolean} handled
+         */
+        _onTap(event) {
+          // By default the overlay says it handles this event. It should say
+          // it does not handle it if the user has clicked outside the overlay
+          // and noCancelOnOutsideClick is true.
+          let handled = true;
+          if (this._isTapOutside(event)) {
+            if (this.noCancelOnOutsideClick) {
+              handled = false;
+            } else {
+              this._cancel(event);
+            }
+          }
+          return handled;
+        }
+
+        /**
+         * @param {!Event} event
+         * @returns {boolean}
+         */
+        _isTapOutside(event) {
+          return event.composedPath().indexOf(this.renderer) === -1;
+        }
+
+        /**
+         * Ensures the overlay is created and the content is stamped and appended into the overlay.
+         */
+        _ensureInstance() {
+          if (this.renderer) {
+            return;
+          }
+          // Init the renderer.
+          const renderer = this._createRenderer();
+
+          renderer.dataset.overlay = this.id;
+          renderer.addEventListener('transitioning-changed', this._onTransitioningChanged.bind(this));
+          this._setRenderer(renderer);
+        }
+
+        /**
+         * Ensures the renderer is attached.
+         */
+        _ensureAttached() {
+          this._ensureInstance();
+          if (this.renderer.isConnected) {
+            return;
+          }
+          const event = this._fire('iron-overlay-attach', {
+            overlay: this
+          }, {
+            cancelable: true
+          });
+          // If no handler responded, add it to body.
+          if (!event.defaultPrevented && !this.renderer.isConnected) {
+            document.body.appendChild(this.renderer);
+          }
+        }
+
+        /**
+         * Ensures the renderer is detached.
+         */
+        _ensureDetached() {
+          if (!this.renderer || !this.renderer.isConnected) {
+            return;
+          }
+
+          // Trigger event to notify.
+          const event = this._fire('iron-overlay-detach', {
+            overlay: this
+          }, {
+            node: this.renderer,
+            cancelable: true
+          });
+
+          // Force removing.
+          if (this.renderer.isConnected) {
+            this.renderer.parentNode.removeChild(this.renderer);
+          }
+        }
+
+        _openedChanged(opened) {
+          if (!this.isConnected) {
+            return;
+          }
+          // Reset the closing reason to false.
+          this.closingReason.canceled = false;
+          if (opened) {
+            // Save the active element.
+            let active = document.activeElement;
+            // Consider <body> as null.
+            if (active === document.body) {
+              active = null;
+            } 
+            while (active && active.shadowRoot && active.shadowRoot.activeElement) {
+              active = active.shadowRoot.activeElement;
+            }
+            this._restoreFocusNode = active;
+            this._ensureAttached();
+          }
+          // If renderer is already transitioning, it means the previous transition
+          // didn't complete yet, e.g. close before open animation is completed.
+          // We need to update here the listeners and move focus, as we won't receive
+          // a `transitioning = true` notification.
+          if (this.renderer.transitioning) {
+            this._toggleListeners();
+            this.applyFocus();
+          }
+        }
+
+        _onTransitioningChanged(event) {
+          const transitioning = event.detail.value;
+          if (transitioning) {
+            this._toggleListeners();
+            this.applyFocus();
+          } else {
+            if (this.opened) {
+              this._fire('iron-overlay-opened');
+            } else {
+              this._fire('iron-overlay-closed', this.closingReason);
+              this._ensureDetached();
+            }
+          }
+        }
+
+        _fire(type, detail, options) {
+          options = options || {};
+          detail = (detail === null || detail === undefined) ? {} : detail;
+          const event = new Event(type, {
+            bubbles: options.bubbles === undefined ? true : options.bubbles,
+            cancelable: Boolean(options.cancelable),
+            composed: options.composed === undefined ? true : options.composed
+          });
+          event.detail = detail;
+          const node = options.node || this;
+          node.dispatchEvent(event);
+          return event;
+        }
+
+      }
+
+      /**
+       * Fired when the overlay should be attached.
+       * @event iron-overlay-attach
+       * @param {Event} event Call `event.preventDefault()` to notify the attach has been done.
+       */
+
+      /**
+       * Fired when the content should be detached.
+       * @event iron-overlay-detach
+       * @param {Event} event Call `event.preventDefault()` to notify the detach has been done.
+       */
+
+      /**
+       * Fired after the overlay has been fully opened.
+       * @event iron-overlay-opened
+       */
+
+      /**
+       * Fired when the overlay is canceled, but before it is closed.
+       * @event iron-overlay-canceled
+       * @param {Event} event Call `event.preventDefault()` to prevent the closing.
+       * The `event.detail` is the original event that originated the canceling
+       * (e.g. ESC keyboard event or click event outside the overlay).
+       */
+
+      /**
+       * Fired after the overlay has been fully closed.
+       * @event iron-overlay-closed
+       * @param {Event} event The `event.detail` is the `closingReason` property
+       * (e.g. `event.detail.canceled` is whether the overlay was canceled).
+       */
+
+      Polymer.IronOverlay = IronOverlay;
+      customElements.define(IronOverlay.is, IronOverlay);
+    })();
+  </script>
+</dom-module>

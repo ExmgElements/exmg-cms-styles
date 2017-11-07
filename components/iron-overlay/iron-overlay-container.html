@@ -1,0 +1,176 @@
+<!--
+@license
+Copyright (c) 2016 The Polymer Project Authors. All rights reserved.
+This code may only be used under the BSD style license found at http://polymer.github.io/LICENSE.txt
+The complete set of authors may be found at http://polymer.github.io/AUTHORS.txt
+The complete set of contributors may be found at http://polymer.github.io/CONTRIBUTORS.txt
+Code distributed by Google as part of the polymer project is also
+subject to an additional IP rights grant found at http://polymer.github.io/PATENTS.txt
+-->
+
+<link rel="import" href="../polymer/polymer-element.html">
+
+<!--
+`iron-overlay-container` hosts the overlay renderers by litening to the
+`iron-overlay-attach` and `iron-overlay-detach` events.
+
+This element should be placed in a stacking-context safe node (e.g. `document.body`).
+
+    <div style="transform: translateZ(0);">
+      This div creates a new stacking context
+      <iron-overlay opened>
+        <template>
+          <h2>Hello world!</h2>
+        </template>
+      </iron-overlay>
+    </div>
+
+    <iron-overlay-container></iron-overlay-container>
+
+
+Use `overlayType` to limit which types of overlays this container should host:
+
+    <iron-overlay-container overlay-type="paper-toast"></iron-overlay-container>
+
+@demo demo/index.html
+-->
+
+<script>
+  (() => {
+    'use strict';
+
+    class IronOverlayContainer extends Polymer.Element {
+      static get is() {
+        return 'iron-overlay-container';
+      }
+      static get properties() {
+        return {
+          /**
+           * Which overlay type should this container host.
+           */
+          overlayType: String
+        };
+      }
+      constructor() {
+        super();
+        // List of overlays handled by this container.
+        this._overlays = [];
+        this._host = null;
+        // Bind these methods to `this` as they are used for event listeners.
+        this._onAttach = this._onAttach.bind(this);
+        this._onDetach = this._onDetach.bind(this);
+      }
+
+      connectedCallback() {
+        super.connectedCallback();
+        // Listeners on the host.
+        const host = this._getHostRoot();
+        host.addEventListener('iron-overlay-attach', this._onAttach);
+        host.addEventListener('iron-overlay-detach', this._onDetach);
+        this._host = host;
+      }
+
+      disconnectedCallback() {
+        super.disconnectedCallback();
+        const host = this._host;
+        host.removeEventListener('iron-overlay-attach', this._onAttach);
+        host.removeEventListener('iron-overlay-detach', this._onDetach);
+        this._host = null;
+      }
+
+      /**
+       * Returns the current overlay.
+       * @type {Node|undefined}
+       */
+      get currentOverlay() {
+        return this._overlays[this._overlays.length - 1];
+      }
+
+      /**
+       * Returns true if the overlay can be hosted (if it matches the overlayType).
+       * @param {!Polymer.IronOverlay} overlay
+       * @returns {boolean}
+       */
+      canAttach(overlay) {
+        return (!this.overlayType || overlay.localName === this.overlayType);
+      }
+
+      /**
+       * Hosts the overlay renderer if if can be hosted (see `canHost`).
+       * Returns true if the overlay was hosted.
+       * @param {!Polymer.IronOverlay} overlay
+       * @returns {boolean}
+       */
+      attachOverlay(overlay) {
+        const canAttach = this.canAttach(overlay);
+        if (canAttach) {
+          this._overlays.push(overlay);
+          this.appendChild(overlay.renderer);
+        }
+        return canAttach;
+      }
+
+
+      /**
+       * Stops hosting the overlay renderer, moves focus to the new `currentOverlay`.
+       * Returns true if the overlay was removed.
+       * @param {Polymer.IronOverlay} overlay
+       * @returns {boolean}
+       */
+      detachOverlay(overlay) {
+        const i = this._overlays.indexOf(overlay);
+        if (i >= 0) {
+          this.removeChild(overlay.renderer);
+          this._overlays.splice(i, 1);
+        }
+        return i >= 0;
+      }
+
+      /**
+       * Adds the `root` and prevents/stops the event propagation.
+       * @param {!Event} event
+       */
+      _onAttach(event) {
+        if (event.defaultPrevented) {
+          return;
+        }
+
+        if (this.attachOverlay(event.detail.overlay)) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+      }
+
+      /**
+       * Removes the `root` and prevents/stops the event propagation.
+       * @param {!Event} event
+       */
+      _onDetach(event) {
+        if (event.defaultPrevented) {
+          return;
+        }
+        if (this.detachOverlay(event.detail.overlay)) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+      }
+
+      /**
+       * Returns the root element hosting the container.
+       * @returns {Node}
+       */
+      _getHostRoot() {
+        let n = this;
+        while (n) {
+          if (n.nodeType === Node.DOCUMENT_FRAGMENT_NODE && n.host) {
+            return n;
+          }
+          n = n.parentNode;
+        }
+        return document;
+      }
+    }
+
+    customElements.define(IronOverlayContainer.is, IronOverlayContainer);
+  })();
+</script>
